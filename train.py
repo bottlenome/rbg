@@ -66,7 +66,8 @@ class DoNothing(nn.Module):
 
 class WrapResNet(nn.Module):
     def __init__(self, model_name, generalization,
-                 rate=0.1, epsilon=0.4, finetune=False, analyze=DoNothing):
+                 rate=0.1, epsilon=0.4, finetune=False,
+                 analyze=DoNothing, change_output=False):
         super().__init__()
         self.model = eval(f"models.{model_name}(pretrained={finetune})")
         if model_name == "resnet18" or model_name == "resnet34":
@@ -85,7 +86,7 @@ class WrapResNet(nn.Module):
         self.for_layer4 = nn.ModuleList([])
         for _ in range(len(self.model.layer4)):
             self.for_layer4.append(analyze(generalization(rate, epsilon)))
-        self.change_output = False
+        self.change_output = change_output
 
     def forward(self, x, y):
         x = self.model.conv1(x)
@@ -95,26 +96,25 @@ class WrapResNet(nn.Module):
 
         for i in range(len(self.for_layer1)):
             x = self.for_layer1[i](x, y)
-            if len(x) != 1:
-                self.change_output = True
+            if self.change_output:
                 y = x[1]
                 x = x[0]
             x = self.model.layer1[i](x)
         for i in range(len(self.for_layer2)):
             x = self.for_layer2[i](x, y)
-            if len(x) != 1:
+            if self.change_output:
                 y = x[1]
                 x = x[0]
             x = self.model.layer2[i](x)
         for i in range(len(self.for_layer3)):
             x = self.for_layer3[i](x, y)
-            if len(x) != 1:
+            if self.change_output:
                 y = x[1]
                 x = x[0]
             x = self.model.layer3[i](x)
         for i in range(len(self.for_layer4)):
             x = self.for_layer4[i](x, y)
-            if len(x) != 1:
+            if self.change_output:
                 y = x[1]
                 x = x[0]
             x = self.model.layer4[i](x)
@@ -135,7 +135,7 @@ def freeze(net):
 
 
 def get_model(model_name, method):
-    if method == "scrach" or method == "finetune":
+    if method == "scratch" or method == "finetune":
         if model_name == "ViT":
             # TODO
             net = nn.Module()
@@ -158,7 +158,8 @@ def get_model(model_name, method):
             assert(False)
     elif method == "brg":
         if model_name[:len("resnet")] == "resnet":
-            net = WrapResNet(model_name, RandomBatchGeneralization)
+            net = WrapResNet(model_name, RandomBatchGeneralization,
+                             change_output=True)
         elif model_name[:len("vgg")] == "vgg":
             # TODO
             pass
@@ -167,7 +168,7 @@ def get_model(model_name, method):
             pass
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
-            net = WrapResNet(model_name, RandomBatchGeneralization)
+            net = WrapResNet(model_name, BatchGeneralization)
         elif model_name[:len("vgg")] == "vgg":
             # TODO
             pass

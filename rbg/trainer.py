@@ -102,7 +102,7 @@ class Trainer():
 
     def loss_normal(self, inputs, targets):
         outputs = self.net(inputs.to(self.device))
-        return self.criterion(outputs, targets), outputs
+        return self.criterion(outputs, targets.to(self.device)), outputs
 
     def save(self, score, epoch):
         checkpoint = {
