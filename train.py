@@ -2,6 +2,9 @@ import argparse
 import torch
 import torch.nn as nn
 from torchvision import datasets, transforms, models
+from rbg.trainer import Trainer
+from rbg.function import onehot_cross
+from rbg.generalization import RandomBatchGeneralization, BatchGeneralization
 
 
 def correctness(output, target):
@@ -52,6 +55,79 @@ def device_settings(args):
     return train_kwargs, test_kwargs, device
 
 
+class DoNothing(nn.Module):
+    def __init__(self, net):
+        super().__init__()
+        self.net = net
+
+    def forward(self, x, y):
+        return self.net(x, y)
+
+
+class WrapResNet(nn.Module):
+    def __init__(self, model_name, generalization,
+                 rate=0.1, epsilon=0.4, finetune=False, analyze=DoNothing):
+        super().__init__()
+        self.model = eval(f"models.{model_name}(pretrained={finetune})")
+        if model_name == "resnet18" or model_name == "resnet34":
+            self.model.fc = nn.Linear(in_features=512, out_features=10)
+        else:
+            self.model.fc = nn.Linear(in_features=2048, out_features=10)
+        self.for_layer1 = nn.ModuleList([])
+        for _ in range(len(self.model.layer1)):
+            self.for_layer1.append(analyze(generalization(rate, epsilon)))
+        self.for_layer2 = nn.ModuleList([])
+        for _ in range(len(self.model.layer2)):
+            self.for_layer2.append(analyze(generalization(rate, epsilon)))
+        self.for_layer3 = nn.ModuleList([])
+        for _ in range(len(self.model.layer3)):
+            self.for_layer3.append(analyze(generalization(rate, epsilon)))
+        self.for_layer4 = nn.ModuleList([])
+        for _ in range(len(self.model.layer4)):
+            self.for_layer4.append(analyze(generalization(rate, epsilon)))
+        self.change_output = False
+
+    def forward(self, x, y):
+        x = self.model.conv1(x)
+        x = self.model.bn1(x)
+        x = self.model.relu(x)
+        x = self.model.maxpool(x)
+
+        for i in range(len(self.for_layer1)):
+            x = self.for_layer1[i](x, y)
+            if len(x) != 1:
+                self.change_output = True
+                y = x[1]
+                x = x[0]
+            x = self.model.layer1[i](x)
+        for i in range(len(self.for_layer2)):
+            x = self.for_layer2[i](x, y)
+            if len(x) != 1:
+                y = x[1]
+                x = x[0]
+            x = self.model.layer2[i](x)
+        for i in range(len(self.for_layer3)):
+            x = self.for_layer3[i](x, y)
+            if len(x) != 1:
+                y = x[1]
+                x = x[0]
+            x = self.model.layer3[i](x)
+        for i in range(len(self.for_layer4)):
+            x = self.for_layer4[i](x, y)
+            if len(x) != 1:
+                y = x[1]
+                x = x[0]
+            x = self.model.layer4[i](x)
+
+        x = self.model.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.model.fc(x)
+        if self.change_output:
+            return x, y
+        else:
+            return x
+
+
 def freeze(net):
     for param in net.parameters():
         param.requres_grad = False
@@ -59,13 +135,14 @@ def freeze(net):
 
 
 def get_model(model_name, method):
-    if model_name == "ViT":
-        # TODO
-        net = nn.Module()
-    else:
-        net = eval(f"models.{model_name}(pretrained=True)")
-    if method == "finetune":
-        net = freeze(net)
+    if method == "scrach" or method == "finetune":
+        if model_name == "ViT":
+            # TODO
+            net = nn.Module()
+        else:
+            net = eval(f"models.{model_name}(pretrained={method=='finetune'})")
+        if method == "finetune":
+            net = freeze(net)
         if model_name == "resnet18" or model_name == "resnet34":
             net.fc = nn.Linear(in_features=512, out_features=10)
         elif model_name[:len("resnet")] == "resnet":
@@ -79,18 +156,37 @@ def get_model(model_name, method):
         else:
             print(f"unknown model name {model_name}")
             assert(False)
-    elif method == "scratch":
-        pass
     elif method == "brg":
-        pass
-    elif method == "rg":
-        pass
-
+        if model_name[:len("resnet")] == "resnet":
+            net = WrapResNet(model_name, RandomBatchGeneralization)
+        elif model_name[:len("vgg")] == "vgg":
+            # TODO
+            pass
+        elif model_name == "ViT":
+            # TODO
+            pass
+    elif method == "bg":
+        if model_name[:len("resnet")] == "resnet":
+            net = WrapResNet(model_name, RandomBatchGeneralization)
+        elif model_name[:len("vgg")] == "vgg":
+            # TODO
+            pass
+            net = nn.Module()
+        elif model_name == "ViT":
+            # TODO
+            pass
+            net = nn.Module()
+    else:
+        print(f"invalid method: {method}")
+        assert(False)
     return net
 
 
-def train(net, train_kwargs, test_kwargs, device):
-    pass
+def get_criterion(method):
+    if method == "brg":
+        return onehot_cross
+    else:
+        return nn.CrossEntropyLoss()
 
 
 def main(args):
@@ -100,9 +196,17 @@ def main(args):
                                              test_kwargs)
     for model_name in args.models:
         for method in args.methods:
-            net = get_model(model_name, method)
             print(f"Model: {model_name}, Method: {method}")
-            train(net, train_loader, test_loader, device)
+            net = get_model(model_name, method)
+            criterion = get_criterion(method)
+            score = correctness
+            optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+            t = Trainer(net, criterion, score, optimizer,
+                        method, train_loader, test_loader,
+                        model_name=model_name,
+                        device=device,
+                        debug=args.debug)
+            t.train(args.epochs, debug=args.debug)
 
 
 def get_args():
@@ -113,8 +217,8 @@ def get_args():
     parser.add_argument('--test-batch-size', type=int,
                         default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--gpu', type=int, default=1, metavar='G',
-                        help='gpu num (default: 1)')
+    parser.add_argument('--gpu', type=int, default=0, metavar='G',
+                        help='gpu num (default: 0)')
     parser.add_argument('--data_max', type=int, default=-1, metavar='N',
                         help='train data max size')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
@@ -125,8 +229,9 @@ def get_args():
                         help='number of epochs to train (default: 200)')
     parser.add_argument('--models', type=list,
                         nargs='+',
-                        default=["vgg11_bn", "vgg19_bn",
-                                 "resnet18", "resnet152", "ViT"],
+                        default=["resnet18", "resnet152",
+                                 "vgg11_bn", "vgg19_bn",
+                                 "ViT"],
                         metavar='N',
                         help='target model names')
     parser.add_argument('--methods', type=list,
@@ -135,6 +240,7 @@ def get_args():
                                  "finetune", "scratch"],
                         metavar='N',
                         help='target methods')
+    parser.add_argument("--debug", action='store_true', default=False)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
