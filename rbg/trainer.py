@@ -6,7 +6,7 @@ from math import log10
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.checkpoint import checkpoint_sequential
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from .function import onehot
+from .function import onehot, do_nothing
 
 
 class EarlyStopping():
@@ -42,7 +42,7 @@ class SchedulerDonothing():
 class Trainer():
     def __init__(self, net, criterion, score, optimizer,
                  method, trainloader, testloader,
-                 num_class=10,
+                 preprocess_target=do_nothing,
                  callbacks=[],
                  model_name=None,
                  device=torch.device("cuda"),
@@ -61,28 +61,7 @@ class Trainer():
             c.reset()
         self.model_name = f"{model_name}_{method}"
         self.device = device
-        if method == "bg":
-            self.loss_train = self.loss_bg
-            self.loss_test = self.loss_bg_test
-        elif method == "brg":
-            def loss_brg_base(inputs, targets, ref_targets):
-                outputs, targets = self.net(inputs.to(self.device),
-                                            targets)
-                return self.criterion(outputs, targets), outputs
-
-            def loss_brg(inputs, targets):
-                targets = onehot(targets, num_class).to(self.device)
-                return loss_brg_base(inputs, targets, targets)
-
-            def loss_brg_test(inputs, targets):
-                targets = onehot(targets, num_class).to(self.device)
-                return loss_brg_base(inputs, targets, None)
-
-            self.loss_train = loss_brg
-            self.loss_test = loss_brg_test
-        else:
-            self.loss_train = self.loss_normal
-            self.loss_test = self.loss_normal
+        self.preprocess_target = preprocess_target
         self.writer = SummaryWriter()
         self.debug = debug
         self.scheduler = scheduler
@@ -126,7 +105,10 @@ class Trainer():
         for i, data in enumerate(self.trainloader, 0):
             inputs, targets = data
             self.optimizer.zero_grad()
-            loss, _ = self.loss_train(inputs.to(self.device), targets)
+            targets = self.preprocess_target(targets)
+            outputs, targets = self.net.forward(
+                    inputs.to(self.device), targets.to(self.device))
+            loss = self.criterion(outputs, targets)
             loss.backward()
             self.optimizer.step()
 
@@ -153,11 +135,13 @@ class Trainer():
         score = 0.0
         for data in self.testloader:
             inputs, targets = data
-            targets = targets.to(self.device)
             with torch.no_grad():
-                loss, outputs = self.loss_test(inputs.to(self.device), targets)
-            val_loss += loss.item()
-            score += self.score(outputs, targets)
+                outputs, _ = self.net.forward(inputs.to(self.device), None)
+                loss = self.criterion(
+                        outputs, self.preprocess_target(
+                            targets).to(self.device))
+                val_loss += loss.item()
+                score += self.score(outputs, targets.to(self.device))
             if self.debug:
                 break
         val_loss /= len(self.testloader)
