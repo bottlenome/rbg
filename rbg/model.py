@@ -3,6 +3,8 @@ import torch.nn as nn
 from .generalization import RandomBatchGeneralization, BatchGeneralization
 from torchvision import models
 from .function import onehot, do_nothing
+from .attention import VisionTransformer, EmbeddingBnReLU2222
+from .attention import FeedForwardRBG, FeedForwardBG
 
 
 class DoNothing(nn.Module):
@@ -169,8 +171,9 @@ def get_model(model_name, method):
     preprocess = do_nothing
     if method == "scratch" or method == "finetune":
         if model_name == "ViT":
-            # TODO
-            net = nn.Module()
+            net = VisionTransformer(
+                    num_heads=1,
+                    embedding=EmbeddingBnReLU2222)
         elif model_name[:len("resnet")] == "resnet":
             net = WrapNormalResNet(model_name, method)
         elif model_name[:len("vgg")] == "vgg":
@@ -186,8 +189,10 @@ def get_model(model_name, method):
             net = WrapVGG(model_name, RandomBatchGeneralization,
                           change_output=True)
         elif model_name == "ViT":
-            # TODO
-            pass
+            net = VisionTransformer(
+                    num_heads=1,
+                    embedding=EmbeddingBnReLU2222,
+                    feed_forward=FeedForwardRBG)
         preprocess = OneHot(10)
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
@@ -195,9 +200,10 @@ def get_model(model_name, method):
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, BatchGeneralization)
         elif model_name == "ViT":
-            # TODO
-            pass
-            net = nn.Module()
+            net = VisionTransformer(
+                    num_heads=1,
+                    embedding=EmbeddingBnReLU2222,
+                    feed_forward=FeedForwardBG)
     else:
         print(f"invalid method: {method}")
         assert(False)

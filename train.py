@@ -103,9 +103,9 @@ def get_args():
                         help='number of epochs to train (default: 200)')
     parser.add_argument('--models', type=list,
                         nargs='+',
-                        default=["resnet18", "resnet152",
-                                 "vgg11_bn", "vgg19_bn",
-                                 "ViT"],
+                        default=["ViT",
+                                 "resnet18", "resnet152",
+                                 "vgg11_bn", "vgg19_bn"],
                         metavar='N',
                         help='target model names')
     parser.add_argument('--methods', type=list,
