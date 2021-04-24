@@ -22,6 +22,66 @@ class OneHot():
         return onehot(x, self.num_class)
 
 
+class WrapNormalVGG(nn.Module):
+    def __init__(self, model_name, method):
+        super().__init__()
+        self.net = eval(
+                f"models.{model_name}(pretrained={method=='finetune'})")
+        if method == "finetune":
+            self.net = freeze(self.net)
+        self.net.classifier[0] = nn.Linear(
+                in_features=25088, out_features=4096)
+        self.net.classifier[3] = nn.Linear(
+                in_features=4096, out_features=4096)
+        self.net.classifier[6] = nn.Linear(
+                in_features=4096, out_features=10)
+
+    def forward(self, x, _):
+        return self.net(x), _
+
+
+class WrapVGG(nn.Module):
+    def __init__(self, model_name, generalization,
+                 rate=0.1, epsilon=0.4, finetune=False,
+                 analyze=DoNothing, change_output=False):
+        super().__init__()
+        if model_name == "vgg11_bn":
+            self.insert_points = [4, 8, 11, 15, 18, 22, 25]
+        elif model_name == "vgg13_bn":
+            self.insert_points = [3, 7, 10, 14, 17, 21, 24, 28, 31]
+        elif model_name == "vgg16_bn":
+            self.insert_points = [3, 7, 10, 14, 17, 20, 24, 27, 30, 34, 37, 40]
+        elif model_name == "vgg19_bn":
+            self.insert_points = [3, 7, 10, 14, 17, 20, 23, 27,
+                                  30, 33, 36, 40, 43, 46, 49]
+        else:
+            print(f"unsupported vgg model: {model_name}")
+            assert(False)
+        self.layers = nn.ModuleList([])
+        for _ in self.insert_points:
+            self.layers.append(generalization(rate, epsilon))
+        self.net = eval(
+                f"models.{model_name}(pretrained={finetune})")
+        self.net.classifier[6] = nn.Linear(
+                in_features=4096, out_features=10)
+        self.change_output = change_output
+
+    def forward(self, x, y):
+        for i in range(len(self.net.features)):
+            if i in self.insert_points:
+                j = self.insert_points.index(i)
+                x = self.layers[j](x, y)
+                if self.change_output:
+                    y = x[1]
+                    x = x[0]
+            x = self.net.features[i](x)
+
+        x = self.net.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.net.classifier(x)
+        return x, y
+
+
 class WrapNormalResNet(nn.Module):
     def __init__(self, model_name, method):
         super().__init__()
@@ -111,28 +171,20 @@ def get_model(model_name, method):
         if model_name == "ViT":
             # TODO
             net = nn.Module()
-        elif model_name[:len("resnet")]:
+        elif model_name[:len("resnet")] == "resnet":
             net = WrapNormalResNet(model_name, method)
-        else:
-            net = eval(f"models.{model_name}(pretrained={method=='finetune'})")
-        """
-        if model_name[:len("vgg")] == "vgg":
-            net.classifier[3] = nn.Linear(in_features=4096, out_features=4096)
-            net.classifier[6] = nn.Linear(in_features=4096, out_features=10)
-        elif model_name == "ViT":
-            # TODO
-            pass
+        elif model_name[:len("vgg")] == "vgg":
+            net = WrapNormalVGG(model_name, method)
         else:
             print(f"unknown model name {model_name}")
             assert(False)
-        """
     elif method == "rbg":
         if model_name[:len("resnet")] == "resnet":
             net = WrapResNet(model_name, RandomBatchGeneralization,
                              change_output=True)
         elif model_name[:len("vgg")] == "vgg":
-            # TODO
-            pass
+            net = WrapVGG(model_name, RandomBatchGeneralization,
+                          change_output=True)
         elif model_name == "ViT":
             # TODO
             pass
@@ -141,9 +193,7 @@ def get_model(model_name, method):
         if model_name[:len("resnet")] == "resnet":
             net = WrapResNet(model_name, BatchGeneralization)
         elif model_name[:len("vgg")] == "vgg":
-            # TODO
-            pass
-            net = nn.Module()
+            net = WrapVGG(model_name, BatchGeneralization)
         elif model_name == "ViT":
             # TODO
             pass
