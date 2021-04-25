@@ -118,6 +118,7 @@ def get_args():
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     return args
 
 
