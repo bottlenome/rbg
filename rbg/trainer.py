@@ -151,7 +151,7 @@ class Trainer():
         self.writer.add_scalar('Loss/test', val_loss, epoch)
         self.writer.add_scalar('{}/test'.format(self.score.__name__),
                                score, epoch)
-        if best_score < score:
+        if best_score < score and epoch > 20:
             self.save(score, epoch)
             best_score = score
 
