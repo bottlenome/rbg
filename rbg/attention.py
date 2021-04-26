@@ -210,6 +210,48 @@ class Encoder(nn.Module):
         return x, y
 
 
+class Combine(nn.Module):
+    def __init__(self, net, generalization):
+        super().__init__()
+        self.net = net
+        self.generalization = generalization
+
+    def forward(self, x, y):
+        x = self.net(x)
+        x, y = self.generalization(x, y)
+        return x, y
+
+
+class CombineThrough(nn.Module):
+    def __init__(self, net, generalization):
+        super().__init__()
+        self.net = net
+        self.generalization = generalization
+
+    def forward(self, x, y):
+        x = self.net(x)
+        x = self.generalization(x, y)
+        return x, y
+
+
+class EmbeddingFactory():
+    def __init__(self, net, generalization, rate, epsilon,
+                 change_output=False):
+        self.net = net
+        self.generalization = generalization
+        self.rate = rate
+        self.epsilon = epsilon
+        self.change_output = change_output
+
+    def __call__(self, in_channels, out_channels, kernel_size, stride):
+        net = self.net(in_channels, out_channels, kernel_size, stride)
+        generalization = self.generalization(self.rate, self.epsilon)
+        if self.change_output:
+            return Combine(net, generalization)
+        else:
+            return CombineThrough(net, generalization)
+
+
 class Embedding(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride):
         super().__init__()
@@ -424,7 +466,7 @@ class VisionTransformer(nn.Module):
         self.cls = nn.Parameter(torch.zeros(hidden_channels, 1))
 
     def forward(self, x, y):
-        x = self.embedding(x)
+        x, y = self.embedding(x, y)
         b, c, h, w = x.shape
         x = x.reshape(b, c, h * w)
 

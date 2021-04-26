@@ -102,6 +102,14 @@ class BatchGeneralization(nn.Module):
             return x
 
 
+class GeneralizationDoNothing(nn.Module):
+    def __init__(self, rate=0.1, epsilon=0.4):
+        super().__init__()
+
+    def forward(self, x, y):
+        return x
+
+
 if __name__ == '__main__':
     import time
 

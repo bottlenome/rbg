@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 from .generalization import RandomBatchGeneralization, BatchGeneralization
+from .generalization import GeneralizationDoNothing
 from torchvision import models
 from .function import onehot, do_nothing
-from .attention import VisionTransformer, EmbeddingBnReLU2222
+from .attention import VisionTransformer, EmbeddingBnReLU2222, EmbeddingFactory
 from .attention import FeedForwardRBG, FeedForwardBG, FeedForwardFactory
 
 
@@ -171,9 +172,13 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
     preprocess = do_nothing
     if method == "scratch" or method == "finetune":
         if model_name == "ViT":
+            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+                                          GeneralizationDoNothing,
+                                          rate, epsilon,
+                                          change_output=False)
             net = VisionTransformer(
                     num_heads=1,
-                    embedding=EmbeddingBnReLU2222)
+                    embedding=em_factory)
         elif model_name[:len("resnet")] == "resnet":
             net = WrapNormalResNet(model_name, method)
         elif model_name[:len("vgg")] == "vgg":
@@ -189,11 +194,15 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
             net = WrapVGG(model_name, RandomBatchGeneralization,
                           change_output=True, rate=rate, epsilon=epsilon)
         elif model_name == "ViT":
-            factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
+            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+                                          RandomBatchGeneralization,
+                                          rate, epsilon,
+                                          change_output=True)
+            ff_factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
             net = VisionTransformer(
                     num_heads=1,
-                    embedding=EmbeddingBnReLU2222,
-                    feed_forward=factory)
+                    embedding=em_factory,
+                    feed_forward=ff_factory)
         preprocess = OneHot(10)
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
@@ -201,11 +210,15 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, BatchGeneralization)
         elif model_name == "ViT":
-            factory = FeedForwardFactory(FeedForwardBG, rate, epsilon)
+            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+                                          BatchGeneralization,
+                                          rate, epsilon,
+                                          change_output=False)
+            ff_factory = FeedForwardFactory(FeedForwardBG, rate, epsilon)
             net = VisionTransformer(
                     num_heads=1,
-                    embedding=EmbeddingBnReLU2222,
-                    feed_forward=factory)
+                    embedding=em_factory,
+                    feed_forward=ff_factory)
     else:
         print(f"invalid method: {method}")
         assert(False)
