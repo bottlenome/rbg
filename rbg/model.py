@@ -184,10 +184,10 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
     elif method == "rbg":
         if model_name[:len("resnet")] == "resnet":
             net = WrapResNet(model_name, RandomBatchGeneralization,
-                             change_output=True)
+                             change_output=True, rate=rate, epsilon=epsilon)
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, RandomBatchGeneralization,
-                          change_output=True)
+                          change_output=True, rate=rate, epsilon=epsilon)
         elif model_name == "ViT":
             factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
             net = VisionTransformer(
