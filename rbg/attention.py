@@ -369,25 +369,6 @@ class Encoder1D(nn.Module):
         return x + y, labels
 
 
-class Encoder1DRBG(nn.Module):
-    def __init__(self, dim, num_heads,
-                 attention=Attention, feed_forward=FeedForward):
-        super().__init__()
-        self.attention = Attention(dim, num_heads)
-        self.ff = feed_forward(dim)
-        self.dropout = RandomBatchGeneralization()
-
-    def forward(self, inputs):
-        x = F.layer_norm(inputs, inputs.shape[2:])
-        x = self.attention(x, x)
-        x = self.dropout(x)
-        x = x + inputs
-
-        y = F.layer_norm(x, x.shape[2:])
-        y = self.ff(y)
-        return x + y
-
-
 class Encoder(nn.Module):
     def __init__(self, hidden_channels, length,
                  num_layers, num_heads,
@@ -413,33 +394,6 @@ class Encoder(nn.Module):
         x = F.layer_norm(x, x.shape[2:])
         x = einops.rearrange(x, 'b n d -> b d n')
         return x, y
-
-
-class EncoderRBG(nn.Module):
-    def __init__(self, hidden_channels, length,
-                 num_layers, num_heads,
-                 position_embedding=PositionEmbedding,
-                 attention=Attention,
-                 feed_forward=FeedForward):
-        super().__init__()
-        size = (hidden_channels, length)
-        self.position_embedding = position_embedding(size)
-        self.dropout = RandomBatchGeneralization()
-        self.encoders = nn.ModuleList([])
-        for _ in range(num_layers):
-            self.encoders.append(
-                    Encoder1DRBG(hidden_channels, num_heads,
-                                 attention, feed_forward))
-
-    def forward(self, x):
-        x = self.position_embedding(x)
-        x = self.dropout(x)
-        x = einops.rearrange(x, 'b d n -> b n d')
-        for encoder in self.encoders:
-            x = encoder(x)
-        x = F.layer_norm(x, x.shape[2:])
-        x = einops.rearrange(x, 'b n d -> b d n')
-        return x
 
 
 class Embedding(nn.Module):
