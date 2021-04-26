@@ -259,39 +259,55 @@ class FeedForward(nn.Module):
 
 
 class FeedForwardRBG(nn.Module):
-    def __init__(self, dim, mlpdim=3072, dropout=0.1):
+    def __init__(self, dim, mlpdim=3072, dropout=0.1,
+                 rate=0.1, epsilon=0.4):
         super().__init__()
+        self.gen1 = RandomBatchGeneralization(rate=rate, epsilon=epsilon)
         self.linear1 = nn.Linear(dim, mlpdim)
         self.gelu = nn.GELU()
-        self.gen1 = RandomBatchGeneralization(rate=dropout)
+        self.dropout1 = nn.Dropout(dropout)
         self.linear2 = nn.Linear(mlpdim, dim)
-        self.gen2 = RandomBatchGeneralization(rate=dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, y):
+        x, y = self.gen1(x, y)
         x = self.linear1(x)
         x = self.gelu(x)
-        x, y = self.gen1(x, y)
+        x = self.dropout1(x)
         x = self.linear2(x)
-        x, y = self.gen2(x, y)
+        x = self.dropout2(x)
         return x, y
 
 
 class FeedForwardBG(nn.Module):
-    def __init__(self, dim, mlpdim=3072, dropout=0.1):
+    def __init__(self, dim, mlpdim=3072, dropout=0.1,
+                 rate=0.1, epsilon=0.4):
         super().__init__()
+        self.gen1 = BatchGeneralization(rate=rate, epsilon=epsilon)
         self.linear1 = nn.Linear(dim, mlpdim)
         self.gelu = nn.GELU()
-        self.gen1 = BatchGeneralization(rate=dropout)
+        self.dropout1 = nn.Dropout(dropout)
         self.linear2 = nn.Linear(mlpdim, dim)
-        self.gen2 = BatchGeneralization(rate=dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, y):
+        x = self.gen1(x, y)
         x = self.linear1(x)
         x = self.gelu(x)
-        x = self.gen1(x, y)
+        x = self.dropout1(x)
         x = self.linear2(x)
-        x = self.gen2(x, y)
+        x = self.dropout2(x)
         return x, y
+
+
+class FeedForwardFactory():
+    def __init__(self, method, rate, epsilon):
+        self.method = method
+        self.rate = rate
+        self.epsilon = epsilon
+
+    def __call__(self, dim, mlpdim=3072, dropout=0.1):
+        return self.method(dim, rate=self.rate, epsilon=self.epsilon)
 
 
 class Attention(nn.Module):
@@ -779,4 +795,3 @@ if __name__ == '__main__':
     model = ViTGen()
     x = torch.zeros(10, 1, 32, 32)
     print(model(x).shape)
-

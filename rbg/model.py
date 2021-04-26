@@ -4,7 +4,7 @@ from .generalization import RandomBatchGeneralization, BatchGeneralization
 from torchvision import models
 from .function import onehot, do_nothing
 from .attention import VisionTransformer, EmbeddingBnReLU2222
-from .attention import FeedForwardRBG, FeedForwardBG
+from .attention import FeedForwardRBG, FeedForwardBG, FeedForwardFactory
 
 
 class DoNothing(nn.Module):
@@ -167,7 +167,7 @@ def freeze(net):
     return net
 
 
-def get_model(model_name, method):
+def get_model(model_name, method, rate=0.1, epsilon=0.4):
     preprocess = do_nothing
     if method == "scratch" or method == "finetune":
         if model_name == "ViT":
@@ -189,10 +189,11 @@ def get_model(model_name, method):
             net = WrapVGG(model_name, RandomBatchGeneralization,
                           change_output=True)
         elif model_name == "ViT":
+            factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
             net = VisionTransformer(
                     num_heads=1,
                     embedding=EmbeddingBnReLU2222,
-                    feed_forward=FeedForwardRBG)
+                    feed_forward=factory)
         preprocess = OneHot(10)
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
@@ -200,10 +201,11 @@ def get_model(model_name, method):
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, BatchGeneralization)
         elif model_name == "ViT":
+            factory = FeedForwardFactory(FeedForwardBG, rate, epsilon)
             net = VisionTransformer(
                     num_heads=1,
                     embedding=EmbeddingBnReLU2222,
-                    feed_forward=FeedForwardBG)
+                    feed_forward=factory)
     else:
         print(f"invalid method: {method}")
         assert(False)

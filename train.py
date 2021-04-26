@@ -5,6 +5,7 @@ from torchvision import datasets, transforms, models
 from rbg.trainer import Trainer
 from rbg.function import onehot_cross
 from rbg.model import get_model
+import numpy as np
 
 
 def correctness(output, target):
