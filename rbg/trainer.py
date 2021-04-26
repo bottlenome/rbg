@@ -39,6 +39,14 @@ class SchedulerDonothing():
         pass
 
 
+class WriterDoNothing():
+    def __init__(self):
+        pass
+
+    def add_scalar(self, *args):
+        pass
+
+
 class Trainer():
     def __init__(self, net, criterion, score, optimizer,
                  method, trainloader, testloader,
@@ -62,7 +70,10 @@ class Trainer():
         self.model_name = f"{model_name}_{method}"
         self.device = device
         self.preprocess_target = preprocess_target
-        self.writer = SummaryWriter()
+        if debug:
+            self.writer = WriterDoNothing()
+        else:
+            self.writer = SummaryWriter()
         self.debug = debug
         self.scheduler = scheduler
 
