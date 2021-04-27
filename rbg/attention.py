@@ -64,7 +64,6 @@ class FeedForward(nn.Module):
                 nn.GELU(),
                 nn.Dropout(dropout),
                 nn.Linear(mlpdim, dim),
-                nn.Dropout(dropout),
                 )
 
     def forward(self, x, _):
@@ -79,7 +78,7 @@ class FeedForwardRBG(nn.Module):
         self.gen1 = RandomBatchGeneralization(rate=rate, epsilon=epsilon)
         self.linear1 = nn.Linear(dim, mlpdim)
         self.gelu = nn.GELU()
-        self.dropout1 = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(mlpdim, dim)
         self.dropout2 = nn.Dropout(dropout)
 
@@ -87,9 +86,8 @@ class FeedForwardRBG(nn.Module):
         x, y = self.gen1(x, y)
         x = self.linear1(x)
         x = self.gelu(x)
-        x = self.dropout1(x)
+        x = self.dropout(x)
         x = self.linear2(x)
-        x = self.dropout2(x)
         return x, y
 
 
@@ -100,17 +98,15 @@ class FeedForwardBG(nn.Module):
         self.gen1 = BatchGeneralization(rate=rate, epsilon=epsilon)
         self.linear1 = nn.Linear(dim, mlpdim)
         self.gelu = nn.GELU()
-        self.dropout1 = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout)
         self.linear2 = nn.Linear(mlpdim, dim)
-        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, y):
         x = self.gen1(x, y)
         x = self.linear1(x)
         x = self.gelu(x)
-        x = self.dropout1(x)
+        x = self.dropout(x)
         x = self.linear2(x)
-        x = self.dropout2(x)
         return x, y
 
 
@@ -170,16 +166,18 @@ class Encoder1D(nn.Module):
         super().__init__()
         self.attention = Attention(dim, num_heads)
         self.ff = feed_forward(dim)
-        self.dropout = nn.Dropout(0.1)
+        self.dropout1 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.1)
 
     def forward(self, inputs, labels):
         x = F.layer_norm(inputs, inputs.shape[2:])
         x = self.attention(x, x)
-        x = self.dropout(x)
+        x = self.dropout1(x)
         x = x + inputs
 
         y = F.layer_norm(x, x.shape[2:])
         y, labels = self.ff(y, labels)
+        y = self.dropout2(y)
         return x + y, labels
 
 
