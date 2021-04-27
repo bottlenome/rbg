@@ -200,7 +200,6 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
                                           change_output=True)
             ff_factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
             net = VisionTransformer(
-                    num_heads=1,
                     embedding=em_factory,
                     feed_forward=ff_factory)
         preprocess = OneHot(10)
@@ -216,7 +215,6 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
                                           change_output=False)
             ff_factory = FeedForwardFactory(FeedForwardBG, rate, epsilon)
             net = VisionTransformer(
-                    num_heads=1,
                     embedding=em_factory,
                     feed_forward=ff_factory)
     else:
