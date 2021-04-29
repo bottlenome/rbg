@@ -70,18 +70,19 @@ def main(args):
                                              test_kwargs)
     for model_name in args.models:
         for method in args.methods:
-            print(f"Model: {model_name}, Method: {method}")
-            net, preprocess = get_model(model_name, method)
-            criterion = get_criterion(method)
-            score = correctness
-            optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
-            t = Trainer(net, criterion, score, optimizer,
-                        method, train_loader, test_loader,
-                        preprocess_target=preprocess,
-                        model_name=model_name,
-                        device=device,
-                        debug=args.debug)
-            t.train(args.epochs, debug=args.debug)
+            for rate in args.rates:
+                print(f"Model: {model_name}, Method: {method}, Rate: {rate}")
+                net, preprocess = get_model(model_name, method, rate)
+                criterion = get_criterion(method)
+                score = correctness
+                optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+                t = Trainer(net, criterion, score, optimizer,
+                            method, train_loader, test_loader,
+                            preprocess_target=preprocess,
+                            model_name=model_name,
+                            device=device,
+                            debug=args.debug)
+                t.train(args.epochs, debug=args.debug)
 
 
 def get_args():
@@ -102,19 +103,23 @@ def get_args():
                         help='learning rate (default: 0.0001)')
     parser.add_argument('--epochs', type=int, default=200, metavar='N',
                         help='number of epochs to train (default: 200)')
-    parser.add_argument('--models', type=list,
+    parser.add_argument('--models',
                         nargs='+',
                         default=["ViT",
                                  "resnet18", "resnet152",
                                  "vgg11_bn", "vgg19_bn"],
                         metavar='N',
                         help='target model names')
-    parser.add_argument('--methods', type=list,
+    parser.add_argument('--methods',
                         nargs='+',
                         default=["rbg", "bg",
                                  "finetune", "scratch"],
                         metavar='N',
                         help='target methods')
+    parser.add_argument('--rates', type=float,
+                        nargs='+',
+                        default=[0.1],
+                        help='augument rate in layer')
     parser.add_argument("--debug", action='store_true', default=False)
     args = parser.parse_args()
 
