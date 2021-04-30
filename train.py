@@ -76,13 +76,23 @@ def main(args):
                 criterion = get_criterion(method)
                 score = correctness
                 optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+                start_epoch = 0
+                best_score = 0
+                if args.resume is not None:
+                    model = torch.load(
+                            args.resume, map_location=torch.device('cpu'))
+                    net.load_state_dict(model["model"])
+                    optimizer.load_state_dict(model["optmizer"])
+                    start_epoch = model["epoch"]
+                    best_score = model["score"]
                 t = Trainer(net, criterion, score, optimizer,
                             method, train_loader, test_loader,
                             preprocess_target=preprocess,
                             model_name=model_name,
                             device=device,
                             debug=args.debug)
-                t.train(args.epochs, debug=args.debug)
+                t.train(args.epochs, debug=args.debug,
+                        start_epoch=start_epoch, best_score=best_score)
 
 
 def get_args():
@@ -121,6 +131,8 @@ def get_args():
                         default=[0.1],
                         help='augument rate in layer')
     parser.add_argument("--debug", action='store_true', default=False)
+    parser.add_argument('--resume', type=str, default=None,
+                        help='saved model path')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
