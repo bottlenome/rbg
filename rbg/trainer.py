@@ -173,12 +173,11 @@ class Trainer():
             val_loss, score, end_time))
         return best_score
 
-    def train(self, epoch_size, start_epoch=0, debug=False):
+    def train(self, epoch_size, start_epoch=0, debug=False, best_score=0):
         batch_size = self.trainloader.batch_size
         total_size = len(self.trainloader) * batch_size
         train_start = datetime.now(self.locale)
-        best_score = 0
-        score = 0
+        best_score = best_score
         self.net = self.net.to(self.device)
         self.start_epoch = start_epoch
         self.epoch_size = epoch_size
@@ -198,7 +197,7 @@ class Trainer():
                 break
 
         print('Finished Training')
-        return score
+        return best_score
 
 
 if __name__ == '__main__':
