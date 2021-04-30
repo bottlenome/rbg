@@ -105,7 +105,7 @@ class Trainer():
                        f'models/{score:.2f}_{epoch}_{time.time()}.pth')
         else:
             torch.save(checkpoint,
-                       f'models/{self.model_name}_{score:.2f}_{epoch}.pth')
+                       f'models/{self.model_name}.pth')
 
     def train_(self, epoch):
         start = time.time()
