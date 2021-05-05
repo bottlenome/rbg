@@ -88,7 +88,7 @@ def main(args):
                 t = Trainer(net, criterion, score, optimizer,
                             method, train_loader, test_loader,
                             preprocess_target=preprocess,
-                            model_name=model_name,
+                            model_name=f"{model_name}_{rate}",
                             device=device,
                             debug=args.debug)
                 t.train(args.epochs, debug=args.debug,
