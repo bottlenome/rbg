@@ -78,7 +78,7 @@ def main(args):
                 if args.optimizer == "adam":
                     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
                     scheduler = SchedulerDonothing(optimizer)
-                elif args.optmizer == "sgd":
+                elif args.optimizer == "sgd":
                     optimizer = torch.optim.SGD(
                             net.parameters(), lr=args.lr,
                             momentum=0.9, weight_decay=5e-4)
