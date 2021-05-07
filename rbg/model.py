@@ -228,9 +228,11 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
         preprocess = OneHot(10)
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
-            net = WrapResNet(model_name, BatchGeneralization)
+            net = WrapResNet(model_name, BatchGeneralization,
+                             rate=rate, epsilon=epsilon)
         elif model_name[:len("vgg")] == "vgg":
-            net = WrapVGG(model_name, BatchGeneralization)
+            net = WrapVGG(model_name, BatchGeneralization,
+                          rate=rate, epsilon=epsilon)
         elif model_name == "ViT":
             em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
                                           BatchGeneralization,
