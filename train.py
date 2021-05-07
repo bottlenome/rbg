@@ -75,7 +75,18 @@ def main(args):
                 net, preprocess = get_model(model_name, method, rate)
                 criterion = get_criterion(method)
                 score = correctness
-                optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+                if args.optmizer == "adam":
+                    optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+                    scheduler = SchedulerDonothing()
+                elif args.optmizer == "sgd":
+                    optimizer = torch.optim.SGD(
+                            net.parameters(), lr=args.lr,
+                            momentum=0.9, weight_decay=5e-4)
+                    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                            optimizer, T_max=200)
+                else:
+                    print(f"unsupported optimizer{args.optmizer}")
+                    assert(False)
                 start_epoch = 0
                 best_score = 0
                 if args.resume is not None:
@@ -90,7 +101,8 @@ def main(args):
                             preprocess_target=preprocess,
                             model_name=f"{model_name}_{rate}",
                             device=device,
-                            debug=args.debug)
+                            debug=args.debug,
+                            scheduler=scheduler)
                 t.train(args.epochs, debug=args.debug,
                         start_epoch=start_epoch, best_score=best_score)
 
@@ -133,6 +145,8 @@ def get_args():
     parser.add_argument("--debug", action='store_true', default=False)
     parser.add_argument('--resume', type=str, default=None,
                         help='saved model path')
+    parser.add_argument("--optimizer", type=str, deault="adam",
+                        help="optmizer type (adam/sgd)")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
