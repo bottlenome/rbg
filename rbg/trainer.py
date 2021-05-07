@@ -157,7 +157,6 @@ class Trainer():
                 break
         val_loss /= len(self.testloader)
         score /= len(self.testloader)
-        self.scheduler.step(score)
 
         self.writer.add_scalar('Loss/test', val_loss, epoch)
         self.writer.add_scalar('{}/test'.format(self.score.__name__),
@@ -171,7 +170,7 @@ class Trainer():
                     (epoch + 1 - self.start_epoch)) + train_start
         print("\nval loss:{:.6f} score:{:.2f} end time:{}".format(
             val_loss, score, end_time))
-        return best_score
+        return best_score, score
 
     def optimizer_to(self, device):
         for state in self.optimizer.state.values():
@@ -192,7 +191,8 @@ class Trainer():
         for epoch in range(start_epoch, epoch_size, 1):
             print("Epoch: {}".format(epoch))
             train_loss = self.train_(epoch)
-            best_score = self.test_(epoch, best_score, train_start)
+            best_score, score = self.test_(epoch, best_score, train_start)
+            self.scheduler.step()
 
             end_flag = False
             for c in self.callbacks:
