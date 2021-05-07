@@ -6,6 +6,7 @@ from torchvision import models
 from .function import onehot, do_nothing
 from .attention import VisionTransformer, EmbeddingBnReLU2222, EmbeddingFactory
 from .attention import FeedForwardRBG, FeedForwardBG, FeedForwardFactory
+from .resnet import get_cifar_resnet, is_cifar_resnet
 
 
 class DoNothing(nn.Module):
@@ -88,14 +89,20 @@ class WrapVGG(nn.Module):
 class WrapNormalResNet(nn.Module):
     def __init__(self, model_name, method):
         super().__init__()
-        self.net = eval(
-                f"models.{model_name}(pretrained={method=='finetune'})")
-        if method == "finetune":
-            self.net = freeze(self.net)
-        if model_name == "resnet18" or model_name == "resnet34":
-            self.net.fc = nn.Linear(in_features=512, out_features=10)
+        if is_cifar_resnet(model_name):
+            if method == "finetune":
+                print(f"{model_name} does not support finetnue")
+                assert(False)
+            self.net = get_cifar_resnet(model_name)
         else:
-            self.net.fc = nn.Linear(in_features=2048, out_features=10)
+            self.net = eval(
+                f"models.{model_name}(pretrained={method=='finetune'})")
+            if method == "finetune":
+                self.net = freeze(self.net)
+            if model_name == "resnet18" or model_name == "resnet34":
+                self.net.fc = nn.Linear(in_features=512, out_features=10)
+            else:
+                self.net.fc = nn.Linear(in_features=2048, out_features=10)
 
     def forward(self, x, _):
         return self.net(x), _
@@ -106,30 +113,45 @@ class WrapResNet(nn.Module):
                  rate=0.1, epsilon=0.4, finetune=False,
                  analyze=DoNothing, change_output=False):
         super().__init__()
-        self.model = eval(f"models.{model_name}(pretrained={finetune})")
-        if model_name == "resnet18" or model_name == "resnet34":
-            self.model.fc = nn.Linear(in_features=512, out_features=10)
+        if is_cifar_resnet(model_name):
+            self.is_normal = False
+            self.model = get_cifar_resnet(model_name)
+            self.for_layer1 = nn.ModuleList([])
+            for _ in range(len(self.model.layer1)):
+                self.for_layer1.append(analyze(generalization(rate, epsilon)))
+            self.for_layer2 = nn.ModuleList([])
+            for _ in range(len(self.model.layer2)):
+                self.for_layer2.append(analyze(generalization(rate, epsilon)))
+            self.for_layer3 = nn.ModuleList([])
+            for _ in range(len(self.model.layer3)):
+                self.for_layer3.append(analyze(generalization(rate, epsilon)))
         else:
-            self.model.fc = nn.Linear(in_features=2048, out_features=10)
-        self.for_layer1 = nn.ModuleList([])
-        for _ in range(len(self.model.layer1)):
-            self.for_layer1.append(analyze(generalization(rate, epsilon)))
-        self.for_layer2 = nn.ModuleList([])
-        for _ in range(len(self.model.layer2)):
-            self.for_layer2.append(analyze(generalization(rate, epsilon)))
-        self.for_layer3 = nn.ModuleList([])
-        for _ in range(len(self.model.layer3)):
-            self.for_layer3.append(analyze(generalization(rate, epsilon)))
-        self.for_layer4 = nn.ModuleList([])
-        for _ in range(len(self.model.layer4)):
-            self.for_layer4.append(analyze(generalization(rate, epsilon)))
+            self.is_normal = True
+            self.model = eval(f"models.{model_name}(pretrained={finetune})")
+            if model_name == "resnet18" or model_name == "resnet34":
+                self.model.fc = nn.Linear(in_features=512, out_features=10)
+            else:
+                self.model.fc = nn.Linear(in_features=2048, out_features=10)
+            self.for_layer1 = nn.ModuleList([])
+            for _ in range(len(self.model.layer1)):
+                self.for_layer1.append(analyze(generalization(rate, epsilon)))
+            self.for_layer2 = nn.ModuleList([])
+            for _ in range(len(self.model.layer2)):
+                self.for_layer2.append(analyze(generalization(rate, epsilon)))
+            self.for_layer3 = nn.ModuleList([])
+            for _ in range(len(self.model.layer3)):
+                self.for_layer3.append(analyze(generalization(rate, epsilon)))
+            self.for_layer4 = nn.ModuleList([])
+            for _ in range(len(self.model.layer4)):
+                self.for_layer4.append(analyze(generalization(rate, epsilon)))
         self.change_output = change_output
 
     def forward(self, x, y):
         x = self.model.conv1(x)
         x = self.model.bn1(x)
         x = self.model.relu(x)
-        x = self.model.maxpool(x)
+        if self.is_normal:
+            x = self.model.maxpool(x)
 
         for i in range(len(self.for_layer1)):
             x = self.for_layer1[i](x, y)
@@ -149,12 +171,13 @@ class WrapResNet(nn.Module):
                 y = x[1]
                 x = x[0]
             x = self.model.layer3[i](x)
-        for i in range(len(self.for_layer4)):
-            x = self.for_layer4[i](x, y)
-            if self.change_output:
-                y = x[1]
-                x = x[0]
-            x = self.model.layer4[i](x)
+        if self.is_normal:
+            for i in range(len(self.for_layer4)):
+                x = self.for_layer4[i](x, y)
+                if self.change_output:
+                    y = x[1]
+                    x = x[0]
+                x = self.model.layer4[i](x)
 
         x = self.model.avgpool(x)
         x = torch.flatten(x, 1)

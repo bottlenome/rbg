@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.nn as nn
 from torchvision import datasets, transforms, models
-from rbg.trainer import Trainer
+from rbg.trainer import Trainer, SchedulerDonothing
 from rbg.function import onehot_cross
 from rbg.model import get_model
 import numpy as np
@@ -75,9 +75,9 @@ def main(args):
                 net, preprocess = get_model(model_name, method, rate)
                 criterion = get_criterion(method)
                 score = correctness
-                if args.optmizer == "adam":
+                if args.optimizer == "adam":
                     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
-                    scheduler = SchedulerDonothing()
+                    scheduler = SchedulerDonothing(optimizer)
                 elif args.optmizer == "sgd":
                     optimizer = torch.optim.SGD(
                             net.parameters(), lr=args.lr,
@@ -145,8 +145,8 @@ def get_args():
     parser.add_argument("--debug", action='store_true', default=False)
     parser.add_argument('--resume', type=str, default=None,
                         help='saved model path')
-    parser.add_argument("--optimizer", type=str, deault="adam",
-                        help="optmizer type (adam/sgd)")
+    parser.add_argument("--optimizer", type=str, default="adam",
+                        help="optimizer type (adam/sgd)")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
