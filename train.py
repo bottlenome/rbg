@@ -83,7 +83,7 @@ def main(args):
                             net.parameters(), lr=args.lr,
                             momentum=0.9, weight_decay=5e-4)
                     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                            optimizer, T_max=200)
+                            optimizer, T_max=args.epochs)
                 else:
                     print(f"unsupported optimizer{args.optmizer}")
                     assert(False)
