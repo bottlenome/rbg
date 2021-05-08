@@ -105,6 +105,8 @@ def main(args):
                             scheduler=scheduler)
                 t.train(args.epochs, debug=args.debug,
                         start_epoch=start_epoch, best_score=best_score)
+                print(f"Model: {model_name}, Method: {method}, Rate: {rate}")
+                print(f"best score: {best_score:.2f}")
 
 
 def get_args():

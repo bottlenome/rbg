@@ -35,7 +35,7 @@ class SchedulerDonothing():
     def __init__(self, optimizer):
         pass
 
-    def step(self, metrics):
+    def step(self, metrics=None):
         pass
 
 
