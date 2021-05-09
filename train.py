@@ -104,8 +104,9 @@ def main(args):
                             device=device,
                             debug=args.debug,
                             scheduler=scheduler)
-                t.train(args.epochs, debug=args.debug,
-                        start_epoch=start_epoch, best_score=best_score)
+                best_score = t.train(args.epochs, debug=args.debug,
+                                     start_epoch=start_epoch,
+                                     best_score=best_score)
                 print(f"Model: {model_name}, Method: {method}, Rate: {rate}, "
                       f"Optimizer: {args.optimizer}")
                 print(f"best score: {best_score:.2f}")
