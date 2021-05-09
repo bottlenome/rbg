@@ -86,7 +86,7 @@ def main(args):
                     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                             optimizer, T_max=args.epochs)
                 else:
-                    print(f"unsupported optimizer{args.optmizer}")
+                    print(f"unsupported optimizer{args.optimizer}")
                     assert(False)
                 start_epoch = 0
                 best_score = 0
