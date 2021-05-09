@@ -71,7 +71,8 @@ def main(args):
     for model_name in args.models:
         for method in args.methods:
             for rate in args.rates:
-                print(f"Model: {model_name}, Method: {method}, Rate: {rate}")
+                print(f"Model: {model_name}, Method: {method}, Rate: {rate}, "
+                      f"Optimizer: {args.optimizer}")
                 net, preprocess = get_model(model_name, method, rate)
                 criterion = get_criterion(method)
                 score = correctness
@@ -99,13 +100,14 @@ def main(args):
                 t = Trainer(net, criterion, score, optimizer,
                             method, train_loader, test_loader,
                             preprocess_target=preprocess,
-                            model_name=f"{model_name}_{rate}",
+                            model_name=f"{model_name}_{rate}_{args.optimizer}",
                             device=device,
                             debug=args.debug,
                             scheduler=scheduler)
                 t.train(args.epochs, debug=args.debug,
                         start_epoch=start_epoch, best_score=best_score)
-                print(f"Model: {model_name}, Method: {method}, Rate: {rate}")
+                print(f"Model: {model_name}, Method: {method}, Rate: {rate}, "
+                      f"Optimizer: {args.optimizer}")
                 print(f"best score: {best_score:.2f}")
 
 
