@@ -200,7 +200,6 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
                                           rate, epsilon,
                                           change_output=False)
             net = VisionTransformer(
-                    num_heads=1,
                     embedding=em_factory)
         elif model_name[:len("resnet")] == "resnet":
             net = WrapNormalResNet(model_name, method)
