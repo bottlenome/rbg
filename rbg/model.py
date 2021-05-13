@@ -6,6 +6,7 @@ from torchvision import models
 from .function import onehot, do_nothing
 from .attention import VisionTransformer, EmbeddingBnReLU2222, EmbeddingFactory
 from .attention import FeedForwardRBG, FeedForwardBG, FeedForwardFactory
+from .attention import Embedding
 from .resnet import get_cifar_resnet, is_cifar_resnet
 
 
@@ -191,11 +192,18 @@ def freeze(net):
     return net
 
 
+def get_embedding(model_name):
+    if model_name == "ViTnormal":
+        return Embedding
+    else:
+        return EmbeddingBnReLU2222
+
+
 def get_model(model_name, method, rate=0.1, epsilon=0.4):
     preprocess = do_nothing
     if method == "scratch" or method == "finetune":
-        if model_name == "ViT":
-            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+        if model_name == "ViT" or model_name == "ViTnormal":
+            em_factory = EmbeddingFactory(get_embedding(model_name),
                                           GeneralizationDoNothing,
                                           rate, epsilon,
                                           change_output=False)
@@ -215,8 +223,8 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, RandomBatchGeneralization,
                           change_output=True, rate=rate, epsilon=epsilon)
-        elif model_name == "ViT":
-            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+        elif model_name == "ViT" or model_name == "ViTnormal":
+            em_factory = EmbeddingFactory(get_embedding(model_name),
                                           RandomBatchGeneralization,
                                           rate, epsilon,
                                           change_output=True)
@@ -232,8 +240,8 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, BatchGeneralization,
                           rate=rate, epsilon=epsilon)
-        elif model_name == "ViT":
-            em_factory = EmbeddingFactory(EmbeddingBnReLU2222,
+        elif model_name == "ViT" or model_name == "ViTnormal":
+            em_factory = EmbeddingFactory(get_embedding(model_name),
                                           BatchGeneralization,
                                           rate, epsilon,
                                           change_output=False)
