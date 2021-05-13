@@ -13,7 +13,7 @@ def correctness(output, target):
     return pred.eq(target.view_as(pred)).sum().item() / len(target) * 100.0
 
 
-def load_cifer10(data_max, train_kwargs, test_kwargs):
+def load_cifar10(data_max, train_kwargs, test_kwargs):
     transform_train = transforms.Compose([
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
@@ -65,9 +65,13 @@ def get_criterion(method):
 
 def main(args):
     train_kwargs, test_kwargs, device = device_settings(args)
-    train_loader, test_loader = load_cifer10(args.data_max,
-                                             train_kwargs,
-                                             test_kwargs)
+    if args.dataset == "cifar10":
+        train_loader, test_loader = load_cifar10(args.data_max,
+                                                 train_kwargs,
+                                                 test_kwargs)
+    else:
+        print(f"unkown dataset {args.dataset}")
+        assert(False)
     for model_name in args.models:
         for method in args.methods:
             for rate in args.rates:
@@ -152,6 +156,8 @@ def get_args():
                         help='saved model path')
     parser.add_argument("--optimizer", type=str, default="adam",
                         help="optimizer type (adam/sgd)")
+    parser.add_argument("--dataset", type=str, default="cifar10",
+                        help="dataset type (cifar10/cifar100)")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
