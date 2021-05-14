@@ -40,6 +40,35 @@ def load_cifar10(data_max, train_kwargs, test_kwargs):
     return train_loader, test_loader
 
 
+def load_cifar100(data_max, train_kwargs, test_kwargs):
+    transform_train = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            (0.5070751592371323, 0.48654887331495095, 0.4409178433670343),
+            (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)),
+        ])
+
+    transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(
+            (0.5088964127604166, 0.48739301317401956, 0.44194221124387256),
+            (0.2682515741720801, 0.2573637364478126, 0.2770957707973042)),
+        ])
+    dataset1 = datasets.CIFAR100('data', train=True, download=True,
+                                 transform=transform_train)
+    dataset2 = datasets.CIFAR100('data', train=False,
+                                 transform=transform_test)
+    if data_max != -1:
+        dataset1 = torch.utils.data.dataset.Subset(
+                dataset1, list(range(0, data_max)))
+    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
+    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+
+    return train_loader, test_loader
+
+
 def device_settings(args):
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
@@ -69,6 +98,10 @@ def main(args):
         train_loader, test_loader = load_cifar10(args.data_max,
                                                  train_kwargs,
                                                  test_kwargs)
+    elif args.dataset == "cifar100":
+        train_loader, test_loader = load_cifar100(args.data_max,
+                                                  train_kwargs,
+                                                  test_kwargs)
     else:
         print(f"unkown dataset {args.dataset}")
         assert(False)
@@ -77,7 +110,8 @@ def main(args):
             for rate in args.rates:
                 print(f"Model: {model_name}, Method: {method}, Rate: {rate}, "
                       f"Optimizer: {args.optimizer}")
-                net, preprocess = get_model(model_name, method, rate)
+                net, preprocess = get_model(
+                        model_name, args.dataset, method, rate)
                 criterion = get_criterion(method)
                 score = correctness
                 if args.optimizer == "adam":

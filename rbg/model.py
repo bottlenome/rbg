@@ -27,8 +27,19 @@ class OneHot():
         return onehot(x, self.num_class)
 
 
+def get_num_class(data_name):
+    if data_name == "cifar10":
+        num_class = 10
+    elif data_name == "cifar100":
+        num_class = 100
+    else:
+        print(f"unsupported data_name: {data_name}")
+        assert(False)
+    return num_class
+
+
 class WrapNormalVGG(nn.Module):
-    def __init__(self, model_name, method):
+    def __init__(self, model_name, num_class, method):
         super().__init__()
         self.net = eval(
                 f"models.{model_name}(pretrained={method=='finetune'})")
@@ -39,7 +50,7 @@ class WrapNormalVGG(nn.Module):
         self.net.classifier[3] = nn.Linear(
                 in_features=4096, out_features=4096)
         self.net.classifier[6] = nn.Linear(
-                in_features=4096, out_features=10)
+                in_features=4096, out_features=num_class)
 
     def forward(self, x, _):
         return self.net(x), _
@@ -47,6 +58,7 @@ class WrapNormalVGG(nn.Module):
 
 class WrapVGG(nn.Module):
     def __init__(self, model_name, generalization,
+                 num_class,
                  rate=0.1, epsilon=0.4, finetune=False,
                  analyze=DoNothing, change_output=False):
         super().__init__()
@@ -68,7 +80,7 @@ class WrapVGG(nn.Module):
         self.net = eval(
                 f"models.{model_name}(pretrained={finetune})")
         self.net.classifier[6] = nn.Linear(
-                in_features=4096, out_features=10)
+                in_features=4096, out_features=num_class)
         self.change_output = change_output
 
     def forward(self, x, y):
@@ -88,22 +100,25 @@ class WrapVGG(nn.Module):
 
 
 class WrapNormalResNet(nn.Module):
-    def __init__(self, model_name, method):
+    def __init__(self, model_name, num_class, method):
         super().__init__()
         if is_cifar_resnet(model_name):
             if method == "finetune":
                 print(f"{model_name} does not support finetnue")
                 assert(False)
-            self.net = get_cifar_resnet(model_name)
+            self.net = get_cifar_resnet(
+                    model_name, num_class=num_class)
         else:
             self.net = eval(
                 f"models.{model_name}(pretrained={method=='finetune'})")
             if method == "finetune":
                 self.net = freeze(self.net)
             if model_name == "resnet18" or model_name == "resnet34":
-                self.net.fc = nn.Linear(in_features=512, out_features=10)
+                self.net.fc = nn.Linear(
+                        in_features=512, out_features=num_class)
             else:
-                self.net.fc = nn.Linear(in_features=2048, out_features=10)
+                self.net.fc = nn.Linear(
+                        in_features=2048, out_features=num_class)
 
     def forward(self, x, _):
         return self.net(x), _
@@ -111,12 +126,13 @@ class WrapNormalResNet(nn.Module):
 
 class WrapResNet(nn.Module):
     def __init__(self, model_name, generalization,
+                 num_class,
                  rate=0.1, epsilon=0.4, finetune=False,
                  analyze=DoNothing, change_output=False):
         super().__init__()
         if is_cifar_resnet(model_name):
             self.is_normal = False
-            self.model = get_cifar_resnet(model_name)
+            self.model = get_cifar_resnet(model_name, num_class)
             self.for_layer1 = nn.ModuleList([])
             for _ in range(len(self.model.layer1)):
                 self.for_layer1.append(analyze(generalization(rate, epsilon)))
@@ -130,9 +146,11 @@ class WrapResNet(nn.Module):
             self.is_normal = True
             self.model = eval(f"models.{model_name}(pretrained={finetune})")
             if model_name == "resnet18" or model_name == "resnet34":
-                self.model.fc = nn.Linear(in_features=512, out_features=10)
+                self.model.fc = nn.Linear(
+                        in_features=512, out_features=num_class)
             else:
-                self.model.fc = nn.Linear(in_features=2048, out_features=10)
+                self.model.fc = nn.Linear(
+                        in_features=2048, out_features=num_class)
             self.for_layer1 = nn.ModuleList([])
             for _ in range(len(self.model.layer1)):
                 self.for_layer1.append(analyze(generalization(rate, epsilon)))
@@ -199,8 +217,9 @@ def get_embedding(model_name):
         return EmbeddingBnReLU2222
 
 
-def get_model(model_name, method, rate=0.1, epsilon=0.4):
+def get_model(model_name, data_name, method, rate=0.1, epsilon=0.4):
     preprocess = do_nothing
+    num_class = get_num_class(data_name)
     if method == "scratch" or method == "finetune":
         if model_name == "ViT" or model_name == "ViTnormal":
             em_factory = EmbeddingFactory(get_embedding(model_name),
@@ -208,20 +227,23 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
                                           rate, epsilon,
                                           change_output=False)
             net = VisionTransformer(
-                    embedding=em_factory)
+                    embedding=em_factory,
+                    out_channels=num_class)
         elif model_name[:len("resnet")] == "resnet":
-            net = WrapNormalResNet(model_name, method)
+            net = WrapNormalResNet(model_name, num_class, method)
         elif model_name[:len("vgg")] == "vgg":
-            net = WrapNormalVGG(model_name, method)
+            net = WrapNormalVGG(model_name, num_class, method)
         else:
             print(f"unknown model name {model_name}")
             assert(False)
     elif method == "rbg":
         if model_name[:len("resnet")] == "resnet":
             net = WrapResNet(model_name, RandomBatchGeneralization,
+                             num_class,
                              change_output=True, rate=rate, epsilon=epsilon)
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, RandomBatchGeneralization,
+                          num_class,
                           change_output=True, rate=rate, epsilon=epsilon)
         elif model_name == "ViT" or model_name == "ViTnormal":
             em_factory = EmbeddingFactory(get_embedding(model_name),
@@ -231,14 +253,17 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
             ff_factory = FeedForwardFactory(FeedForwardRBG, rate, epsilon)
             net = VisionTransformer(
                     embedding=em_factory,
-                    feed_forward=ff_factory)
-        preprocess = OneHot(10)
+                    feed_forward=ff_factory,
+                    out_channels=num_class)
+        preprocess = OneHot(num_class)
     elif method == "bg":
         if model_name[:len("resnet")] == "resnet":
             net = WrapResNet(model_name, BatchGeneralization,
+                             num_class,
                              rate=rate, epsilon=epsilon)
         elif model_name[:len("vgg")] == "vgg":
             net = WrapVGG(model_name, BatchGeneralization,
+                          num_class,
                           rate=rate, epsilon=epsilon)
         elif model_name == "ViT" or model_name == "ViTnormal":
             em_factory = EmbeddingFactory(get_embedding(model_name),
@@ -248,7 +273,8 @@ def get_model(model_name, method, rate=0.1, epsilon=0.4):
             ff_factory = FeedForwardFactory(FeedForwardBG, rate, epsilon)
             net = VisionTransformer(
                     embedding=em_factory,
-                    feed_forward=ff_factory)
+                    feed_forward=ff_factory,
+                    out_channels=num_class)
     else:
         print(f"invalid method: {method}")
         assert(False)
