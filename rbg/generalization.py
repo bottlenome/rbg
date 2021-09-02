@@ -89,7 +89,7 @@ class RandomBatchGeneralization(nn.Module):
 
     def forward(self, x, y):
         if self.training:
-            return self.forward_(x, y, self.rate, self.epsilon, self.abs_mag)
+            return self.forward_(x, y, self.rate, self.epsilon)
         else:
             return x, y
 
