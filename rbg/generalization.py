@@ -6,13 +6,15 @@ from .function import onehot, onehot_cross
 
 class random_batch_generalization(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x, y, rate, epsilon):
+    def forward(ctx, x, y, rate, epsilon, abs_mag=False):
         batch_size = x.shape[0]
         ref_index = torch.randint(low=0, high=batch_size - 1,
                                   size=(int(batch_size * rate), ))
         target_index = torch.randint(low=0, high=batch_size - 1,
                                      size=(int(batch_size * rate), ))
         mag = torch.empty(len(ref_index)).normal_(mean=0.0, std=epsilon)
+        if abs_mag:
+            mag = mag.abs()
         ctx.save_for_backward(x, ref_index, target_index, mag)
         ret = x.clone()
         ret_y = y.clone()
@@ -41,15 +43,16 @@ class random_batch_generalization(torch.autograd.Function):
 
 
 class RandomBatchGeneralization(nn.Module):
-    def __init__(self, rate=0.1, epsilon=0.4):
+    def __init__(self, rate=0.1, epsilon=0.4, abs_mag=False):
         super().__init__()
         self.epsilon = epsilon
         self.rate = rate
         self.forward_ = random_batch_generalization.apply
+        self.abs_mag = abs_mag
 
     def forward(self, x, y):
         if self.training:
-            return self.forward_(x, y, self.rate, self.epsilon)
+            return self.forward_(x, y, self.rate, self.epsilon, self.abs_mag)
         else:
             return x, y
 
