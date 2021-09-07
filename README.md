@@ -1,5 +1,5 @@
 # Random Batch Generalization
-Pytorch implementation of our paper.
+Pytorch implementation of our paper.  
 Satoru Mizusawa and Yuichi Sei: Interlayer Augmentation in a Classification Task, 4th IEEE International Conference on Computing, Electronics & Communications Engineering (iCCECE), pp.59-64 (2021.8)
 
 # Install
@@ -14,5 +14,5 @@ see train.py
 from rbg.generalization import RandomBatchGeneralization, BatchGeneralization 
 
 ```
-2. Apply to model
+2. Apply to model  
 See rgb/model.py WrapVGG
